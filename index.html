@@ -51,6 +51,10 @@ body {
 @media(max-width:640px){
   .history-table th, .history-table td { font-size: 0.75rem; padding: 0.25rem; }
 }
+.value-line {
+  display: block;
+  margin-top: 0.25rem;
+}
 </style>
 </head>
 <body>
@@ -93,16 +97,31 @@ body {
     </div>
   </div>
 
-  <hr class="my-6" />
-
-  <div class="space-y-3 text-lg">
-    <p><strong>Total Capex:</strong> <span id="totalCapex" class="font-semibold text-blue-700">₹0.00</span></p>
-    <p><strong>Monthly Expenses:</strong> <span id="monthlyExpenses" class="font-semibold text-red-600">₹0.00</span></p>
-    <p><strong>Monthly Income after Expenses:</strong> <span id="netIncome" class="font-semibold text-green-700">₹0.00</span></p>
-    <p><strong>ROI (Annual):</strong> <span id="roi" class="font-semibold text-indigo-700">0.00%</span></p>
+  <div class="space-y-3 text-lg mt-6">
+    <div>
+      <strong>Total Capex:</strong>
+      <span id="totalCapex" class="font-semibold text-blue-700 value-line">₹0.00</span>
+    </div>
+    <div>
+      <strong>Monthly Expenses:</strong>
+      <span id="monthlyExpenses" class="font-semibold text-red-600 value-line">₹0.00</span>
+    </div>
+    <div>
+      <strong>Monthly Profit after Expenses:</strong>
+      <span id="netIncome" class="font-semibold text-green-700 value-line">₹0.00</span>
+    </div>
+    <div>
+      <strong>ROI (Annual):</strong> <span id="roi" class="font-semibold text-indigo-700">0.00%</span>
+    </div>
   </div>
 
-  <button id="moveHistory" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg font-semibold">Move to History</button>
+
+  <button id="moveHistory" class="mt-4 w-full bg-gray-400 cursor-not-allowed text-white p-2 rounded-lg font-semibold" disabled>
+    Move to History
+  </button>
+
+
+  <hr class="my-4" />
 
   <div class="mt-6">
     <div class="flex justify-between items-center mb-2">
@@ -113,12 +132,11 @@ body {
       <table class="w-full history-table text-sm min-w-[600px]">
         <thead>
           <tr>
-            <th>Land Cost</th>
-            <th>Construction</th>
-            <th>Misc</th>
-            <th>Total Capex</th>
-            <th>Monthly Expenses</th>
-            <th>Income After Expenses</th>
+            <th>Capex</th>
+            <th>Rooms</th>
+            <th>Occupancy</th>
+            <th>Expense</th>
+            <th>Profit</th>
             <th>ROI</th>
           </tr>
         </thead>
@@ -132,6 +150,7 @@ body {
 const totalCapexEl = document.getElementById('totalCapex');
 const netIncomeEl = document.getElementById('netIncome');
 const roiEl = document.getElementById('roi');
+const monthlyExpensesEl = document.getElementById('monthlyExpenses');
 const costInputs = document.querySelectorAll('.cost-input');
 const otherInputs = ['numRooms','avgRoomRate','occupancyDays'].map(id=>document.getElementById(id));
 const historyBody = document.getElementById('historyBody');
@@ -144,39 +163,51 @@ function formatCurrency(value){
 function formatPercent(value){
   return Number(value||0).toFixed(2)+'%';
 }
-function formatCapex(value){
-  if(value>=10000000) return (value/10000000).toFixed(2)+' Cr ('+formatCurrency(value)+')';
-  else if(value>=100000) return (value/100000).toFixed(2)+' Lakh ('+formatCurrency(value)+')';
-  else return formatCurrency(value);
-}
 function parseCostInput(el){
   if(el.dataset.value) return parseFloat(el.dataset.value);
   const raw = el.value.replace(/,/g,'').match(/[\d\.]+/);
   if(!raw) return 0;
   return parseFloat(raw[0])*100000;
 }
+function convertToLakhCr(value){
+  if(value>=10000000) return (value/10000000).toFixed(2)+' Cr ('+formatCurrency(value)+')';
+  else if(value>=100000) return (value/100000).toFixed(2)+' Lakh ('+formatCurrency(value)+')';
+  else return formatCurrency(value);
+}
 
-function calculate(){
-  const landCost=parseCostInput(document.getElementById('landCost'));
-  const constructionCost=parseCostInput(document.getElementById('constructionCost'));
-  const miscCost=parseCostInput(document.getElementById('miscCost'));
-  const numRooms=parseFloat(document.getElementById('numRooms').value)||0;
-  const avgRoomRate=parseFloat(document.getElementById('avgRoomRate').dataset.value)||0;
-  const occupancyDays=parseFloat(document.getElementById('occupancyDays').value)||0;
+function calculate() {
+  const landCost = parseCostInput(document.getElementById('landCost'));
+  const constructionCost = parseCostInput(document.getElementById('constructionCost'));
+  const miscCost = parseCostInput(document.getElementById('miscCost'));
+  const numRooms = parseFloat(document.getElementById('numRooms').value) || 0;
+  const avgRoomRate = parseFloat(document.getElementById('avgRoomRate').dataset.value) || 0;
+  const occupancyDays = parseFloat(document.getElementById('occupancyDays').value) || 0;
 
-  const totalCapex=landCost+constructionCost+miscCost;
-  totalCapexEl.textContent=formatCapex(totalCapex);
+  const totalCapex = landCost + constructionCost + miscCost;
+  totalCapexEl.textContent = convertToLakhCr(totalCapex);
 
-  const monthlyIncome=avgRoomRate*occupancyDays*numRooms;
-  const monthlyExpenses=50000 + (10000*numRooms);
-  document.getElementById('monthlyExpenses').textContent = formatCapex(monthlyExpenses);
-  if(monthlyIncome>0){
-    const incomeAfterExpenses = monthlyIncome - monthlyExpenses;
-    const roi = totalCapex>0 ? (incomeAfterExpenses*12/totalCapex)*100 : 0;
-    netIncomeEl.textContent = formatCapex(incomeAfterExpenses);
+  // Enable or disable Move to History button
+  if (totalCapex > 0) {
+    moveHistoryBtn.disabled = false;
+    moveHistoryBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+    moveHistoryBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+  } else {
+    moveHistoryBtn.disabled = true;
+    moveHistoryBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+    moveHistoryBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+  }
+
+  const monthlyIncome = avgRoomRate * occupancyDays * numRooms;
+  const monthlyExpenses = (numRooms > 0 ? 50000 : 0) + (10000 * numRooms);
+  document.getElementById('monthlyExpenses').textContent = convertToLakhCr(monthlyExpenses);
+
+  if (monthlyIncome > 0) {
+    const profit = monthlyIncome - monthlyExpenses;
+    const roi = totalCapex > 0 ? (profit * 12 / totalCapex) * 100 : 0;
+    netIncomeEl.textContent = convertToLakhCr(profit);
     roiEl.textContent = formatPercent(roi);
   } else {
-    netIncomeEl.textContent = formatCapex(0);
+    netIncomeEl.textContent = convertToLakhCr(0);
     roiEl.textContent = '0.00%';
   }
 }
@@ -234,38 +265,48 @@ document.addEventListener('click', e=>{
 [...costInputs,...otherInputs].forEach(input=>input.addEventListener('input', calculate));
 
 // Move to History
-moveHistoryBtn.addEventListener('click',()=>{
-  const landCost=parseCostInput(document.getElementById('landCost'));
-  const constructionCost=parseCostInput(document.getElementById('constructionCost'));
-  const miscCost=parseCostInput(document.getElementById('miscCost'));
-  const numRooms=parseFloat(document.getElementById('numRooms').value)||0;
-  const avgRoomRate=parseFloat(document.getElementById('avgRoomRate').dataset.value)||0;
-  const occupancyDays=parseFloat(document.getElementById('occupancyDays').value)||0;
+moveHistoryBtn.addEventListener('click', () => {
+  const landCost = parseCostInput(document.getElementById('landCost'));
+  const constructionCost = parseCostInput(document.getElementById('constructionCost'));
+  const miscCost = parseCostInput(document.getElementById('miscCost'));
+  const numRooms = parseInt(document.getElementById('numRooms').value) || 0;
+  const avgRoomRate = parseFloat(document.getElementById('avgRoomRate').dataset.value) || 0;
+  const occupancyDays = parseInt(document.getElementById('occupancyDays').value) || 0;
 
-  const totalCapex=landCost+constructionCost+miscCost;
-  const monthlyIncome=avgRoomRate*occupancyDays*numRooms;
-  const monthlyExpenses=50000 + (10000*numRooms);
-  const incomeAfterExpenses=monthlyIncome>0?monthlyIncome-monthlyExpenses:0;
-  const roi=monthlyIncome>0 && totalCapex>0?(incomeAfterExpenses*12/totalCapex)*100:0;
+  const totalCapex = landCost + constructionCost + miscCost;
+  if (totalCapex <= 0) return; // prevent empty/zero entries
 
-  const tr=document.createElement('tr');
-  tr.innerHTML=`
-    <td>${convertToLakhCr(landCost)}</td>
-    <td>${convertToLakhCr(constructionCost)}</td>
-    <td>${convertToLakhCr(miscCost)}</td>
-    <td>${convertToLakhCr(totalCapex)}</td>
-    <td>${convertToLakhCr(monthlyExpenses)}</td>
-    <td>${convertToLakhCr(incomeAfterExpenses)}</td>
+  const monthlyIncome = avgRoomRate * occupancyDays * numRooms;
+  const monthlyExpenses = numRooms > 0 ? 50000 + 10000 * numRooms : 0;
+  const monthlyProfit = monthlyIncome > 0 ? monthlyIncome - monthlyExpenses : 0;
+  const roi = monthlyIncome > 0 && totalCapex > 0 ? (monthlyProfit * 12 / totalCapex) * 100 : 0;
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${convertToLakhCrOnly(totalCapex)}</td>
+    <td>${numRooms}</td>
+    <td>${occupancyDays}</td>
+    <td>${convertToLakhCrOnly(monthlyExpenses)}</td>
+    <td>${convertToLakhCrOnly(monthlyProfit)}</td>
     <td>${formatPercent(roi)}</td>
   `;
   historyBody.appendChild(tr);
 });
 
-// Helper to convert number to Lakhs or Crores only
-function convertToLakhCr(value){
-  if(value>=10000000) return (value/10000000).toFixed(2)+' Cr';
-  else if(value>=100000) return (value/100000).toFixed(2)+' Lakh';
-  else return value.toFixed(2);
+// Helper to convert numbers to Lakh/Cr ONLY
+function convertToLakhCrOnly(value){
+  if(value >= 10000000){
+    // divide by 1 Cr = 1,00,00,000, format with Indian commas
+    const crValue = value / 10000000;
+    return crValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Cr';
+  } 
+  if(value >= 100000){
+    // divide by 1 Lakh = 1,00,000
+    const lakhValue = value / 100000;
+    return lakhValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Lakh';
+  } 
+  // less than 1 Lakh, just Indian commas
+  return value.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
 // Clear History
@@ -274,3 +315,4 @@ clearHistoryBtn.addEventListener('click',()=>{ historyBody.innerHTML=''; });
 </script>
 </body>
 </html>
+
