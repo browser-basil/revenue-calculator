@@ -311,8 +311,8 @@ moveHistoryBtn.addEventListener('click',()=>{
     <td>${convertToLakhCrOnly(totalCapex)}</td>
     <td>${numRooms}</td>
     <td>${occupancyDays}</td>
-    <td>${monthlyExpenses.toLocaleString('en-IN')}</td>
-    <td>${monthlyProfit.toLocaleString('en-IN')}</td>
+    <td>${convertToLakhCrOnly(monthlyExpenses)}</td>
+    <td>${convertToLakhCrOnly(monthlyProfit)}</td>
     <td>${formatPercent(roi)}</td>
   `;
   historyBody.appendChild(tr);
