@@ -115,11 +115,9 @@ body {
     </div>
   </div>
 
-
   <button id="moveHistory" class="mt-4 w-full bg-gray-400 cursor-not-allowed text-white p-2 rounded-lg font-semibold" disabled>
     Move to History
   </button>
-
 
   <hr class="my-4" />
 
@@ -157,53 +155,83 @@ const historyBody = document.getElementById('historyBody');
 const moveHistoryBtn = document.getElementById('moveHistory');
 const clearHistoryBtn = document.getElementById('clearHistory');
 
-function formatCurrency(value){
-  return '₹'+Number(value||0).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2});
-}
-function formatPercent(value){
-  return Number(value||0).toFixed(2)+'%';
-}
+function formatPercent(value){ return Number(value||0).toFixed(2)+'%'; }
+
 function parseCostInput(el){
   if(el.dataset.value) return parseFloat(el.dataset.value);
-  const raw = el.value.replace(/,/g,'').match(/[\d\.]+/);
+  const raw = el.value.replace(/,/g,'').replace(/₹/g,'').match(/[\d\.]+/);
   if(!raw) return 0;
-  return parseFloat(raw[0])*100000;
+  return parseFloat(raw[0]);
 }
+
+// Convert number to Lakh/Cr for display
 function convertToLakhCr(value){
   if(value>=10000000) return (value/10000000).toFixed(2)+' Cr ('+formatCurrency(value)+')';
   else if(value>=100000) return (value/100000).toFixed(2)+' Lakh ('+formatCurrency(value)+')';
   else return formatCurrency(value);
 }
 
-function calculate() {
-  const landCost = parseCostInput(document.getElementById('landCost'));
-  const constructionCost = parseCostInput(document.getElementById('constructionCost'));
-  const miscCost = parseCostInput(document.getElementById('miscCost'));
-  const numRooms = parseFloat(document.getElementById('numRooms').value) || 0;
-  const avgRoomRate = parseFloat(document.getElementById('avgRoomRate').dataset.value) || 0;
-  const occupancyDays = parseFloat(document.getElementById('occupancyDays').value) || 0;
+// Indian Rupee formatting
+function formatCurrency(value){
+  return '₹'+Number(value||0).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// For History table: only Lakh/Cr, no bracket
+function convertToLakhCrOnly(value){
+  if(value>=10000000) return (value/10000000).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2})+' Cr';
+  if(value>=100000) return (value/100000).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2})+' Lakh';
+  return value.toLocaleString('en-IN',{maximumFractionDigits:0});
+}
+
+// Proper Indian rupee formatting on input with cursor handling
+function formatWithRupeeInput(el){
+  let val = el.value.replace(/[^0-9]/g,'');
+  el.dataset.value = val ? parseFloat(val) : 0;
+
+  let cursorPos = el.selectionStart;
+  let digitsBeforeCursor = el.value.slice(0, cursorPos).replace(/[^0-9]/g,'').length;
+
+  let formatted = val ? Number(val).toLocaleString('en-IN') : '';
+  el.value = formatted ? '₹'+formatted : '';
+
+  if(formatted){
+    let totalDigits = el.value.replace(/[^0-9]/g,'').length;
+    let newCursorPos = el.value.length - (totalDigits - digitsBeforeCursor);
+    if(newCursorPos < 1) newCursorPos = 1;
+    el.setSelectionRange(newCursorPos,newCursorPos);
+  }
+}
+
+// Calculate function
+function calculate(){
+  const landCost=parseCostInput(document.getElementById('landCost'));
+  const constructionCost=parseCostInput(document.getElementById('constructionCost'));
+  const miscCost=parseCostInput(document.getElementById('miscCost'));
+  const numRooms=parseInt(document.getElementById('numRooms').value)||0;
+  const avgRoomRate=parseFloat(document.getElementById('avgRoomRate').dataset.value)||0;
+  const occupancyDays=parseInt(document.getElementById('occupancyDays').value)||0;
 
   const totalCapex = landCost + constructionCost + miscCost;
   totalCapexEl.textContent = convertToLakhCr(totalCapex);
 
-  // Enable or disable Move to History button
-  if (totalCapex > 0) {
-    moveHistoryBtn.disabled = false;
-    moveHistoryBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
-    moveHistoryBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+  // Enable/disable Move to History
+  if(totalCapex>0){
+    moveHistoryBtn.disabled=false;
+    moveHistoryBtn.classList.remove('bg-gray-400','cursor-not-allowed');
+    moveHistoryBtn.classList.add('bg-blue-600','hover:bg-blue-700');
   } else {
-    moveHistoryBtn.disabled = true;
-    moveHistoryBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-    moveHistoryBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+    moveHistoryBtn.disabled=true;
+    moveHistoryBtn.classList.add('bg-gray-400','cursor-not-allowed');
+    moveHistoryBtn.classList.remove('bg-blue-600','hover:bg-blue-700');
   }
 
   const monthlyIncome = avgRoomRate * occupancyDays * numRooms;
-  const monthlyExpenses = (numRooms > 0 ? 50000 : 0) + (10000 * numRooms);
-  document.getElementById('monthlyExpenses').textContent = convertToLakhCr(monthlyExpenses);
+  const monthlyExpenses = numRooms>0?50000+10000*numRooms:0;
+  monthlyExpensesEl.textContent = convertToLakhCr(monthlyExpenses);
 
-  if (monthlyIncome > 0) {
+  if(monthlyIncome>0){
     const profit = monthlyIncome - monthlyExpenses;
-    const roi = totalCapex > 0 ? (profit * 12 / totalCapex) * 100 : 0;
+    const roi = totalCapex>0 ? (profit*12/totalCapex)*100 : 0;
     netIncomeEl.textContent = convertToLakhCr(profit);
     roiEl.textContent = formatPercent(roi);
   } else {
@@ -212,27 +240,24 @@ function calculate() {
   }
 }
 
-// Auto-select all fields
+// Auto-select input text
 document.querySelectorAll('input').forEach(input=>input.addEventListener('focus',e=>e.target.select()));
 
-// Average Room Rate formatting
-const avgRoomRateEl=document.getElementById('avgRoomRate');
-avgRoomRateEl.addEventListener('input', e => {
-  const raw = e.target.value.replace(/[^0-9]/g,'');
-  const value = parseFloat(raw) || 0;
-  e.target.dataset.value = value;
-  e.target.value = raw ? '₹' + value.toLocaleString('en-IN') : '';
-  calculate();
+// Attach formatting to cost fields and Average Room Rate
+[...costInputs,document.getElementById('avgRoomRate')].forEach(input=>{
+  input.addEventListener('input',e=>{
+    formatWithRupeeInput(e.target);
+    calculate();
+  });
+  input.addEventListener('focus',e=>e.target.select());
 });
 
-// Crore/Lakh suggestions
+// Crore/Lakh suggestions (only for 1-2 digit input)
 function generateSuggestions(inputEl,value){
   const box=document.getElementById(inputEl.id+'-suggestions');
-  box.innerHTML='';
-  box.classList.add('hidden');
-  if(!value||inputEl.dataset.value) return;
-  const num=parseFloat(value);
-  if(isNaN(num)) return;
+  box.innerHTML=''; box.classList.add('hidden');
+  if(!value || inputEl.dataset.value || value.length>2) return;
+  const num=parseFloat(value); if(isNaN(num)) return;
   const suggestions=[
     {label:num+' Cr ('+formatCurrency(num*10000000)+')', value:num*10000000},
     {label:num+' Lakh ('+formatCurrency(num*100000)+')', value:num*100000}
@@ -251,68 +276,50 @@ costInputs.forEach(input=>{
   input.addEventListener('input',e=>{
     delete e.target.dataset.value;
     generateSuggestions(e.target, e.target.value.replace(/[^\d\.]/g,''));
-    calculate();
   });
   input.addEventListener('focus',e=>generateSuggestions(e.target, e.target.value.replace(/[^\d\.]/g,'')));
 });
 
+// Hide suggestions if click outside
 document.addEventListener('click', e=>{
   document.querySelectorAll('.suggestions').forEach(box=>{
     if(!box.contains(e.target) && !box.previousElementSibling.contains(e.target)) box.classList.add('hidden');
   });
 });
 
+// Listen to all inputs
 [...costInputs,...otherInputs].forEach(input=>input.addEventListener('input', calculate));
 
 // Move to History
-moveHistoryBtn.addEventListener('click', () => {
-  const landCost = parseCostInput(document.getElementById('landCost'));
-  const constructionCost = parseCostInput(document.getElementById('constructionCost'));
-  const miscCost = parseCostInput(document.getElementById('miscCost'));
-  const numRooms = parseInt(document.getElementById('numRooms').value) || 0;
-  const avgRoomRate = parseFloat(document.getElementById('avgRoomRate').dataset.value) || 0;
-  const occupancyDays = parseInt(document.getElementById('occupancyDays').value) || 0;
+moveHistoryBtn.addEventListener('click',()=>{
+  const landCost=parseCostInput(document.getElementById('landCost'));
+  const constructionCost=parseCostInput(document.getElementById('constructionCost'));
+  const miscCost=parseCostInput(document.getElementById('miscCost'));
+  const numRooms=parseInt(document.getElementById('numRooms').value)||0;
+  const avgRoomRate=parseFloat(document.getElementById('avgRoomRate').dataset.value)||0;
+  const occupancyDays=parseInt(document.getElementById('occupancyDays').value)||0;
+  const totalCapex=landCost+constructionCost+miscCost;
+  if(totalCapex<=0) return;
 
-  const totalCapex = landCost + constructionCost + miscCost;
-  if (totalCapex <= 0) return; // prevent empty/zero entries
+  const monthlyIncome = avgRoomRate*occupancyDays*numRooms;
+  const monthlyExpenses = numRooms>0?50000+10000*numRooms:0;
+  const monthlyProfit = monthlyIncome>0?monthlyIncome-monthlyExpenses:0;
+  const roi = monthlyIncome>0 && totalCapex>0 ? (monthlyProfit*12/totalCapex)*100:0;
 
-  const monthlyIncome = avgRoomRate * occupancyDays * numRooms;
-  const monthlyExpenses = numRooms > 0 ? 50000 + 10000 * numRooms : 0;
-  const monthlyProfit = monthlyIncome > 0 ? monthlyIncome - monthlyExpenses : 0;
-  const roi = monthlyIncome > 0 && totalCapex > 0 ? (monthlyProfit * 12 / totalCapex) * 100 : 0;
-
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
     <td>${convertToLakhCrOnly(totalCapex)}</td>
     <td>${numRooms}</td>
     <td>${occupancyDays}</td>
-    <td>${convertToLakhCrOnly(monthlyExpenses)}</td>
-    <td>${convertToLakhCrOnly(monthlyProfit)}</td>
+    <td>${monthlyExpenses.toLocaleString('en-IN')}</td>
+    <td>${monthlyProfit.toLocaleString('en-IN')}</td>
     <td>${formatPercent(roi)}</td>
   `;
   historyBody.appendChild(tr);
 });
 
-// Helper to convert numbers to Lakh/Cr ONLY
-function convertToLakhCrOnly(value){
-  if(value >= 10000000){
-    // divide by 1 Cr = 1,00,00,000, format with Indian commas
-    const crValue = value / 10000000;
-    return crValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Cr';
-  } 
-  if(value >= 100000){
-    // divide by 1 Lakh = 1,00,000
-    const lakhValue = value / 100000;
-    return lakhValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Lakh';
-  } 
-  // less than 1 Lakh, just Indian commas
-  return value.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-}
-
 // Clear History
 clearHistoryBtn.addEventListener('click',()=>{ historyBody.innerHTML=''; });
-
 </script>
 </body>
 </html>
-
